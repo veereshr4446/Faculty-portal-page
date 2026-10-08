@@ -1,5 +1,5 @@
 const FOOT='<p class="foot">Built with <span class="heart" role="img" aria-label="love"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#C6532B" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></span> by <b>Viresh R</b> · II Year CSE A</p>';
-const API='PASTE_APPS_SCRIPT_URL_HERE';
+const API='https://script.google.com/macros/s/AKfycbyd8YHPGlBy71wieBP0JL3NtHNPiBK09wU5W4gkPzR0OjVoh4MOOkKQs0Fw5wE0Cyfr0w/exec';
 const M=['','Very Poor','Poor','Needs Improvement','Below Average','Average','Satisfactory','Good','Very Good','Excellent','Outstanding'];
 let T=sessionStorage.getItem('tok'),D,view='dash',F={q:'',sem:'',sub:'',rt:''},$=i=>document.getElementById(i);
 const call=b=>fetch(API,{method:'POST',body:JSON.stringify(b)}).then(r=>r.json());

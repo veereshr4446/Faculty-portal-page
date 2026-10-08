@@ -1,0 +1,19 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>RYMEC Insights</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css"></head><body>
+<section id="login"><h1>Faculty portal</h1><p class="sm">Sign in to see your feedback.</p>
+<label>Username<input id="u" autocomplete="username"></label>
+<label>Password<input id="p" type="password" autocomplete="current-password" onkeydown="event.key==='Enter'&&signIn()"></label>
+<div class="err" id="le"></div><button class="btn" onclick="signIn()">Sign in</button>
+<p class="sm"><a href="#" onclick="showRec(1);return false">Forgot password?</a></p><p class="foot">Built with <span class="heart" role="img" aria-label="love"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#C6532B" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></span> by <b>Viresh R</b> · II Year CSE A</p></section>
+<section id="rec" class="hide"><h1>Reset password</h1><p class="sm">Enter your username and the recovery code you were given.</p>
+<div id="rf"><label>Username<input id="ru" autocomplete="username"></label><label>Recovery code<input id="rc" placeholder="RYM-XXXX-XXXX" autocapitalize="characters"></label>
+<label>New password (8+ characters)<input id="rp" type="password" autocomplete="new-password"></label><label>Confirm password<input id="rp2" type="password" autocomplete="new-password"></label>
+<div class="err" id="re"></div><button class="btn" onclick="doReset()">Reset password</button><p class="sm"><a href="#" onclick="showRec(0);return false">Back to sign in</a></p></div>
+<div id="rd" class="hide"><p id="rm"></p>
+<button class="btn" onclick="showRec(0)">Back to sign in</button></div><p class="foot">Built with <span class="heart" role="img" aria-label="love"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#C6532B" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></span> by <b>Viresh R</b> · II Year CSE A</p></section>
+<div id="app" class="hide"><nav><b>RYMEC Insights</b>
+<button data-v="dash" class="on">Dashboard</button><button data-v="fb">Feedback</button><button data-v="sub">Subjects</button><button class="out" onclick="signOut()">Log out</button></nav>
+<main id="main"></main></div><div id="modal" class="hide" onclick="if(event.target===this)this.classList.add('hide')"><div class="card" id="mc"></div></div>
+<script src="app.js"></script></body></html>

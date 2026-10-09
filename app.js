@@ -47,7 +47,17 @@ const M = [
    STATE
    ========================================================= */
 
-let T = sessionStorage.getItem('tok') || '';
+/* =========================================================
+   SAVED LOGIN (keeps the faculty signed in on this device)
+   ========================================================= */
+
+const ls = {
+  get: key => { try { return localStorage.getItem(key); } catch (e) { return null; } },
+  set: (key, value) => { try { localStorage.setItem(key, value); } catch (e) {} },
+  del: key => { try { localStorage.removeItem(key); } catch (e) {} }
+};
+
+let T = ls.get('tok') || '';
 
 let D = {
   faculty: {
@@ -162,219 +172,120 @@ const fmt = timestamp => {
 
 
 /* =========================================================
-   LOGIN
+   SHOW / SAVE DASHBOARD DATA
    ========================================================= */
 
-async function signIn() {
+function setData(result) {
+  D = {
+    faculty: result.faculty || { name: '', dept: '' },
+    feedback: Array.isArray(result.feedback) ? result.feedback : [],
+    requests: Array.isArray(result.requests) ? result.requests : []
+  };
+  ls.set('dash', JSON.stringify(D));
+}
 
-  $('le').textContent = '';
+function showApp() {
+  $('login').classList.add('hide');
+  $('rec').classList.add('hide');
+  $('app').classList.remove('hide');
+  render();
+}
 
-  try {
-
-    const username =
-      $('u').value.trim();
-
-    const password =
-      $('p').value;
-
-
-    if (!username || !password) {
-
-      throw new Error(
-        'Enter your username and password.'
-      );
-
-    }
-
-
-    const result = await call({
-
-      action: 'login',
-
-      username: username,
-
-      password: password
-
-    });
-
-
-    if (
-      !result ||
-      result.error
-    ) {
-
-      throw new Error(
-        result?.error ||
-        'Login failed.'
-      );
-
-    }
-
-
-    if (!result.token) {
-
-      throw new Error(
-        'Login succeeded but no session was returned.'
-      );
-
-    }
-
-
-    T = result.token;
-
-    sessionStorage.setItem(
-      'tok',
-      T
-    );
-
-
-    // IMPORTANT:
-    // Wait for dashboard before considering
-    // the login completely successful.
-
-    await load();
-
-
-  } catch (error) {
-
-    console.error(
-      'LOGIN ERROR:',
-      error
-    );
-
-    $('le').textContent =
-      error.message ||
-      'Unable to sign in.';
-
-  }
-
+function showLogin(message) {
+  T = '';
+  ls.del('tok');
+  ls.del('dash');
+  $('app').classList.add('hide');
+  $('login').classList.remove('hide');
+  $('le').textContent = message || '';
 }
 
 
 /* =========================================================
-   LOAD DASHBOARD
+   SIGN IN
+   ========================================================= */
+
+async function signIn() {
+  const button = document.querySelector('#login .btn');
+  $('le').textContent = '';
+  button.disabled = true;
+  button.textContent = 'Signing in…';
+
+  try {
+    const username = $('u').value.trim();
+    const password = $('p').value;
+
+    if (!username || !password) {
+      throw new Error('Enter your username and password.');
+    }
+
+    const result = await call({ action: 'login', username: username, password: password });
+
+    if (!result || result.error) {
+      throw new Error(result?.error || 'Login failed.');
+    }
+    if (!result.token) {
+      throw new Error('Login succeeded but no session was returned.');
+    }
+
+    T = result.token;
+    ls.set('tok', T);
+
+    if (Array.isArray(result.feedback)) {
+      // New backend: the dashboard arrives together with the login (one request).
+      setData(result);
+      showApp();
+    } else {
+      // Older backend: fetch the dashboard separately.
+      await load();
+    }
+  } catch (error) {
+    console.error('LOGIN ERROR:', error);
+    $('le').textContent =
+      error.message === 'Failed to fetch'
+        ? 'No connection. Check your network and try again.'
+        : (error.message || 'Unable to sign in.');
+  }
+
+  button.disabled = false;
+  button.textContent = 'Sign in';
+}
+
+
+/* =========================================================
+   LOAD / REFRESH DASHBOARD
    ========================================================= */
 
 async function load() {
-
   try {
-
     if (!T) {
-
-      throw new Error(
-        'Please sign in.'
-      );
-
+      throw new Error('Please sign in.');
     }
 
+    const result = await call({ action: 'dashboard', token: T });
 
-    const result = await call({
-
-      action: 'dashboard',
-
-      token: T
-
-    });
-
-
-    console.log(
-      'DASHBOARD RESPONSE:',
-      result
-    );
-
-
-    if (
-      !result ||
-      result.error
-    ) {
-
-      throw new Error(
-        result?.error ||
-        'Unable to load dashboard.'
-      );
-
+    if (!result || result.error) {
+      throw new Error(result?.error || 'Unable to load dashboard.');
     }
 
+    const before = ls.get('dash');
+    setData(result);
 
-    /*
-      IMPORTANT SAFETY CHECK
-
-      Prevents:
-      Cannot read properties of undefined (reading 'map')
-    */
-
-    D = {
-
-      faculty:
-        result.faculty || {
-          name: '',
-          dept: ''
-        },
-
-      feedback:
-        Array.isArray(result.feedback)
-          ? result.feedback
-          : [],
-
-      requests:
-        Array.isArray(result.requests)
-          ? result.requests
-          : []
-
-    };
-
-
-    // Only show app after dashboard
-    // has successfully loaded.
-
-    $('login')
-      .classList
-      .add('hide');
-
-    $('rec')
-      .classList
-      .add('hide');
-
-    $('app')
-      .classList
-      .remove('hide');
-
-
-    render();
-
-
+    // Redraw only if something changed (or the app is not showing yet).
+    if (ls.get('dash') !== before || $('app').classList.contains('hide')) {
+      showApp();
+    }
   } catch (error) {
+    console.error('DASHBOARD ERROR:', error);
 
-    console.error(
-      'DASHBOARD ERROR:',
-      error
-    );
-
-
-    // Remove invalid session.
-
-    T = '';
-
-    sessionStorage.removeItem(
-      'tok'
-    );
-
-
-    $('login')
-      .classList
-      .remove('hide');
-
-    $('app')
-      .classList
-      .add('hide');
-
-
-    $('le').textContent =
-      error.message ||
-      'Session expired. Please sign in again.';
-
+    // Only a rejected session signs the user out.
+    // A weak network keeps the saved dashboard on screen.
+    if (error.message === 'Session expired' || error.message === 'Please sign in.') {
+      showLogin('Your session ended. Please sign in again.');
+    } else if ($('app').classList.contains('hide')) {
+      $('le').textContent = 'Could not load. Check your connection and try again.';
+    }
   }
-
 }
 
 
@@ -512,47 +423,10 @@ async function doReset() {
    LOGOUT
    ========================================================= */
 
-async function signOut() {
-
-  const token =
-    T;
-
-
-  // Clear local session immediately.
-
-  T = '';
-
-  sessionStorage.removeItem(
-    'tok'
-  );
-
-
-  try {
-
-    if (token) {
-
-      await call({
-
-        action: 'logout',
-
-        token: token
-
-      });
-
-    }
-
-  } catch (error) {
-
-    console.warn(
-      'Logout API error:',
-      error
-    );
-
-  }
-
-
+function signOut() {
+  ls.del('tok');
+  ls.del('dash');
   location.reload();
-
 }
 
 
@@ -617,19 +491,11 @@ function render() {
   let content = '';
 
 
-  if (view === 'dash') {
-
-    content = dash();
-
-  } else if (view === 'fb') {
-
-    content = feed();
-
-  } else {
-
-    content = subs();
-
-  }
+  content = view === 'dash' ? dash() + lowCard()
+    : view === 'fb' ? feed()
+    : view === 'ana' ? analytics()
+    : view === 'prof' ? profile()
+    : subs();
 
 
   $('main').innerHTML =
@@ -1220,6 +1086,8 @@ function filtered() {
       const matchesSubject =
         !F.sub ||
         item.subject === F.sub;
+      const matchesBranch = !F.br || item.branch === F.br;
+      const matchesDate = !F.dt || (Date.now() - new Date(item.ts)) <= Number(F.dt) * 864e5;
 
 
       let matchesRating = true;
@@ -1245,9 +1113,7 @@ function filtered() {
 
       return (
         matchesQuery &&
-        matchesSemester &&
-        matchesSubject &&
-        matchesRating
+        matchesSemester && matchesSubject && matchesRating && matchesBranch && matchesDate && (F.hid ? !!item.hidden : !item.hidden)
       );
 
     })
@@ -1376,11 +1242,13 @@ function feed() {
     }
 
   </select>
-
-</div>
-
-
-<div id="fl">
+        <select id="fbr"><option value="">All branches</option>${[...new Set(feedback.map(i => i.branch))].filter(Boolean).map(b => `<option value="${esc(b)}" ${F.br === b ? 'selected' : ''}>${esc(b)}</option>`).join('')}</select>
+        <select id="fd">${[['', 'All time'], ['7', 'Last 7 days'], ['30', 'Last 30 days'], ['90', 'Last 90 days']].map(d => `<option value="${d[0]}" ${(F.dt || '') === d[0] ? 'selected' : ''}>${d[1]}</option>`).join('')}</select>
+      </div>
+      <button class="btn" style="margin:0 0 14px" onclick="exportPdf()">Download PDF</button>
+      <button class="btn" style="margin:0 0 14px 8px;background:var(--gray)" onclick="F.hid = !F.hid; render()">${F.hid ? 'Back to feedback' : 'Hidden (' + feedback.filter(i => i.hidden).length + ')'}</button>
+      ${F.hid ? '<p class="sm">Hidden feedback still counts in your average and charts.</p>' : ''}
+      <div id="fl">
   ${items()}
 </div>
 
@@ -1469,7 +1337,7 @@ document.addEventListener(
       fq: 'q',
       fs: 'sem',
       fj: 'sub',
-      fr: 'rt'
+      fr: 'rt', fbr: 'br', fd: 'dt'
 
     };
 
@@ -1609,6 +1477,7 @@ function detail(id) {
     >
       Close
     </button>
+      <button class="btn" style="background:var(--gray);margin-left:8px" onclick="setHidden('${esc(item.id)}', ${!item.hidden})">${item.hidden ? 'Restore' : 'Hide from my list'}</button>
 
   `;
 
@@ -1688,7 +1557,7 @@ function subs() {
 
               <div
                 class="card fb"
-                onclick="openSubject(${JSON.stringify(subject)})"
+                data-s="${esc(subject)}" onclick="openSubject(this.dataset.s)"
               >
 
                 <h3>
@@ -1762,8 +1631,86 @@ function openSubject(subject) {
    START / RESTORE SESSION
    ========================================================= */
 
+/* =========================================================
+   NEW FEATURES: analytics, profile, needs-attention, PDF
+   ========================================================= */
+
+function bars(rows) {
+  return rows.map(r => `<div class="bar w"><span>${esc(r[0])} <small class="sm">(${r[2]})</small></span><i style="width:${r[1] * 10}%"></i><span>${r[1].toFixed(1)}</span></div>`).join('');
+}
+
+function analytics() {
+  const fb = D.feedback;
+  if (!fb.length) return '<h2>Analytics</h2><p class="sm">No feedback yet.</p>';
+  const g = key => {
+    const m = {};
+    fb.forEach(x => { const k = String(x[key] || 'Unknown'); (m[k] = m[k] || []).push(x); });
+    return Object.entries(m).map(([k, a]) => [k, avg(a), a.length]);
+  };
+  const best = r => r.sort((a, b) => b[1] - a[1]);
+  const sems = g('sem').sort((a, b) => Number(a[0]) - Number(b[0])).map(r => ['Sem ' + r[0], r[1], r[2]]);
+  return '<h2>Analytics</h2>' + [
+    ['Compare subjects', best(g('subject'))],
+    ['Rating by semester', sems],
+    ['Rating by branch', best(g('branch'))]
+  ].map(([t, r]) => `<div class="card" style="margin-top:14px"><h3>${t}</h3>${bars(r)}</div>`).join('');
+}
+
+function lowCard() {
+  const l = D.feedback.filter(x => Number(x.rating) <= 4 && !x.hidden)
+    .sort((a, b) => new Date(b.ts) - new Date(a.ts)).slice(0, 3);
+  return `<div class="card" style="margin-top:14px"><h3>Needs attention</h3>${l.length
+    ? l.map(x => `<p class="fb" onclick="detail('${esc(x.id)}')"><b>${Number(x.rating)}/10</b> ${esc(x.subject)}: “${esc(x.comment)}”</p>`).join('')
+    : '<p class="sm">No low ratings (1–4). Nice work.</p>'}</div>`;
+}
+
+function profile() {
+  const f = D.faculty, fb = D.feedback;
+  const first = fb.length ? fmt(fb.map(x => x.ts).sort()[0]) : '—';
+  return `<h2>Profile</h2><div class="card"><dl>
+    <dt>Name</dt><dd>${esc(f.name)}</dd><dt>Faculty ID</dt><dd>${esc(f.id || '—')}</dd>
+    <dt>Username</dt><dd>${esc(f.username || '—')}</dd><dt>Department</dt><dd>${esc(f.dept)}</dd>
+    <dt>Responses</dt><dd>${fb.length}</dd><dt>First feedback</dt><dd>${first}</dd>
+    <dt>Average</dt><dd>${avg(fb).toFixed(1)} / 10</dd></dl>
+    <button class="btn" onclick="signOut()">Log out of this device</button></div>`;
+}
+
+// Uses the browser's Print dialog: choose "Save as PDF". Student names are left out on purpose.
+async function setHidden(id, hide) {
+  try {
+    const r = await call({ action: 'hide', token: T, id: id, hide: hide });
+    if (!r || r.error) throw new Error(r?.error || 'Could not update.');
+    const item = D.feedback.find(x => x.id === id);
+    if (item) item.hidden = hide;
+    ls.set('dash', JSON.stringify(D));
+    $('modal').classList.add('hide');
+    render();
+  } catch (e) {
+    alert(e.message === 'Failed to fetch' ? 'No connection. Try again.' : e.message);
+  }
+}
+
+function exportPdf() {
+  const list = filtered(), f = D.faculty;
+  const rows = list.map(x => `<tr><td>${fmt(x.ts)}</td><td>${esc(x.subject)}</td><td>Sem ${esc(x.sem)} ${esc(x.branch)}</td><td>${Number(x.rating)}/10</td><td>${esc(x.comment)}</td></tr>`).join('');
+  $('report').innerHTML = `<h1>Feedback report</h1><p><b>${esc(f.name)}</b> · ${esc(f.dept)}<br>Generated ${new Date().toLocaleDateString('en-IN')} · ${list.length} responses · average ${avg(list).toFixed(1)} / 10<br>Student names are not included.</p><table><tr><th>Date</th><th>Subject</th><th>Class</th><th>Rating</th><th>Comment</th></tr>${rows}</table>`;
+  const old = document.title;
+  document.title = 'Feedback report - ' + f.name;
+  window.print();
+  document.title = old;
+}
+
+
 if (T) {
+  const saved = ls.get('dash');
+
+  // Show the saved dashboard instantly, then refresh quietly in the background.
+  if (saved) {
+    try {
+      D = JSON.parse(saved);
+      showApp();
+    } catch (e) {}
+  }
 
   load();
-
 }
